@@ -1,0 +1,6 @@
+{
+    "videos": [
+        {"url": "https://youtube.com/shorts/123xyz", "uploaded": false},
+        {"url": "https://www.instagram.com/reel/abc456", "uploaded": false}
+    ]
+}
