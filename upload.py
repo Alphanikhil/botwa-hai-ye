@@ -1,4 +1,4 @@
-import yt-dlp
+import yt_dlp
 import requests
 import json
 import os
