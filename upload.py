@@ -40,16 +40,23 @@ def save_videos(data):
         json.dump(data, file, indent=4)
 
 def get_direct_video_url(video_url):
+    """ Extracts the direct video URL using yt-dlp with authentication. """
     try:
-        ydl_opts = {'quiet': True, 'format': 'best', 'noplaylist': True}
+        ydl_opts = {
+            'quiet': True,
+            'format': 'best',
+            'noplaylist': True,
+            'cookiefile': 'cookies.txt'  # ✅ Uses YouTube login session
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
             return info.get('url', None)
     except Exception as e:
-        print(f"Error extracting video URL: {e}")
+        print(f"❌ Error extracting video URL: {e}")
         return None
 
 def download_video(video_url, filename):
+    """ Downloads the video using the extracted URL. """
     filepath = os.path.join(DOWNLOAD_FOLDER, filename)
     try:
         with requests.get(video_url, stream=True, timeout=30) as r:
@@ -59,36 +66,39 @@ def download_video(video_url, filename):
                     f.write(chunk)
         return filepath
     except Exception as e:
-        print(f"Download failed: {e}")
+        print(f"❌ Download failed: {e}")
         return None
 
 def upload_to_public_server(filepath):
+    """ Creates a public URL for the downloaded video to be uploaded to Instagram. """
     return f"https://your-render-app.onrender.com/videos/{os.path.basename(filepath)}"
 
 def upload_video(filepath):
-    print(f"Uploading: {filepath}")
+    """ Uploads the video to Instagram Reels using the Graph API. """
+    print(f"🚀 Uploading: {filepath}")
 
     public_video_url = upload_to_public_server(filepath)
     if not public_video_url:
         print("❌ Failed to generate a public video URL.")
         return False
 
+    # Step 1: Upload video to Instagram
     upload_url = f"https://graph.facebook.com/v18.0/{INSTAGRAM_ACCOUNT_ID}/media"
     video_data = {
         "video_url": public_video_url,
         "caption": "🔥 Trending video! #viral",
-        "access_token": ACCESS_TOKEN,
-        "media_type": "REELS"
+        "access_token": ACCESS_TOKEN
     }
     response = requests.post(upload_url, data=video_data)
     response_json = response.json()
 
     if "id" not in response_json:
-        print("Upload failed:", response_json)
+        print("❌ Upload failed:", response_json)
         return False
 
     video_id = response_json.get("id")
 
+    # Step 2: Publish the video on Instagram
     publish_url = f"https://graph.facebook.com/v18.0/{INSTAGRAM_ACCOUNT_ID}/media_publish"
     publish_data = {
         "creation_id": video_id,
@@ -97,11 +107,11 @@ def upload_video(filepath):
     publish_response = requests.post(publish_url, data=publish_data)
 
     if "id" in publish_response.json():
-        print("✅ Upload successful!")
+        print("✅ Upload successful! 🎉")
 
-        # Delete the video after successful upload
+        # Step 3: Delete the downloaded video after successful upload
         os.remove(filepath)
-        print(f"Deleted file: {filepath}")
+        print(f"🗑 Deleted file: {filepath}")
 
         return True
     else:
@@ -109,22 +119,23 @@ def upload_video(filepath):
         return False
 
 def process_videos():
+    """ Processes videos from the videos.json file, downloads, and uploads them. """
     data = load_videos()
     updated = False
 
     for video in data["videos"]:
         if not video["uploaded"]:
-            print(f"Processing: {video['url']}")
+            print(f"🔄 Processing: {video['url']}")
 
             direct_video_url = get_direct_video_url(video["url"])
             if not direct_video_url:
-                print("Failed to extract direct video URL")
+                print("⚠️ Failed to extract direct video URL")
                 continue
 
             video_filename = f"video_{int(time.time())}.mp4"
             video_filepath = download_video(direct_video_url, video_filename)
             if not video_filepath:
-                print("Skipping due to download failure")
+                print("⚠️ Skipping due to download failure")
                 continue
 
             success = upload_video(video_filepath)
@@ -132,11 +143,15 @@ def process_videos():
                 video["uploaded"] = True
                 updated = True
 
-            break
+            break  # Process one video per run
 
     if updated:
         save_videos(data)
-process_videos() 
+
+# Run immediately after startup to test
+process_videos()
+
+# Schedule the bot to run every 12 hours
 schedule.every(12).hours.do(process_videos)
 
 print("✅ Instagram Auto-Upload Bot Started!")
