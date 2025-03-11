@@ -136,7 +136,7 @@ def process_videos():
 
     if updated:
         save_videos(data)
-
+process_videos() 
 schedule.every(12).hours.do(process_videos)
 
 print("✅ Instagram Auto-Upload Bot Started!")
